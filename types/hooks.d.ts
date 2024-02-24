@@ -1,6 +1,23 @@
 import { AtomicoElement, AtomicoThis, Nullable } from "./dom.js";
 import { EventInit } from "./schema.js";
 
+// We clean up the types to reflect a flat state
+type ArrayType = Array<any>;
+
+type ArrayKeys =
+    | {
+          [I in keyof ArrayType]-?: ArrayType[I] extends (...args: any[]) => any
+              ? I extends `${string & I}`
+                  ? I
+                  : never
+              : never;
+      }[keyof ArrayType]
+    | "length";
+
+export type State<value, setValue> = Omit<[value, setValue], ArrayKeys> & {
+    value: value;
+};
+
 /**
  * Current will take its value immediately after rendering
  * The whole object is persistent between renders and mutable
@@ -18,7 +35,7 @@ type SetState<State> = (state: State | ((reduce: State) => State)) => void;
 /**
  * Used by UseProp and UseState, construct return types
  */
-export type ReturnUseState<Value> = [Value, SetState<Value>];
+export type ReturnUseState<Value> = State<Value, SetState<Value>>;
 
 export type UseState = <OptionalInitialState = any>(
     initialState?: OptionalInitialState
@@ -81,12 +98,12 @@ type SetProp<State> = (
 /**
  * Used by UseProp and UseState, construct return types
  */
-export type ReturnUseProp<Value> = [Value | undefined, SetProp<Value>];
+export type ReturnUseProp<Value> = State<Value | undefined, SetProp<Value>>;
 
 export type UseProp = <T = any>(
     prop: string
 ) => T extends (...args: any[]) => any
-    ? [T | undefined, (value: Nullable<T>) => Nullable<T>]
+    ? State<T | undefined, (value: Nullable<T>) => Nullable<T>>
     : ReturnUseProp<T extends boolean ? boolean : T>;
 
 /**
