@@ -1,22 +1,26 @@
 import { AtomicoElement, AtomicoThis, Nullable } from "./dom.js";
 import { EventInit } from "./schema.js";
 
-// We clean up the types to reflect a flat state
-type ArrayType = Array<any>;
+type GetInitialState<InitialState> = InitialState extends (
+    ...args: any[]
+) => infer Value
+    ? Value
+    : InitialState;
 
-type ArrayKeys =
-    | {
-          [I in keyof ArrayType]-?: ArrayType[I] extends (...args: any[]) => any
-              ? I extends `${string & I}`
-                  ? I
-                  : never
-              : never;
-      }[keyof ArrayType]
-    | "length";
-
-export type State<value, setValue> = Omit<[value, setValue], ArrayKeys> & {
+export type State<value, setState> = Iterable<value | setState> & {
+    0: value;
+    1: setState;
     value: value;
 };
+// export interface State<value, setValue> extends Array<any> {
+//     0: value;
+//     1: setValue;
+//     value: value;
+// }
+
+// export type State<value, setValue> = Omit<[value, setValue], ArrayKeys> & {
+//     value: value;
+// };
 
 /**
  * Current will take its value immediately after rendering
@@ -30,7 +34,9 @@ export class Ref<Current = any> {
 /**
  * wrapper for SetState
  */
-type SetState<State> = (state: State | ((reduce: State) => State)) => void;
+export type SetState<State> = (
+    state: State | ((reduce: State) => State)
+) => void;
 
 /**
  * Used by UseProp and UseState, construct return types
@@ -39,11 +45,7 @@ export type ReturnUseState<Value> = State<Value, SetState<Value>>;
 
 export type UseState = <OptionalInitialState = any>(
     initialState?: OptionalInitialState
-) => ReturnUseState<
-    OptionalInitialState extends (...args: any[]) => infer Value
-        ? Value
-        : OptionalInitialState
->;
+) => ReturnUseState<GetInitialState<OptionalInitialState>>;
 
 /**
  * UseEffect
@@ -98,13 +100,12 @@ type SetProp<State> = (
 /**
  * Used by UseProp and UseState, construct return types
  */
-export type ReturnUseProp<Value> = State<Value | undefined, SetProp<Value>>;
+export type ReturnUseProp<Value> = State<
+    Value | undefined,
+    SetState<Value | undefined | null>
+>;
 
-export type UseProp = <T = any>(
-    prop: string
-) => T extends (...args: any[]) => any
-    ? State<T | undefined, (value: Nullable<T>) => Nullable<T>>
-    : ReturnUseProp<T extends boolean ? boolean : T>;
+export type UseProp = <T = any>(prop: string) => ReturnUseProp<T>;
 
 /**
  * UseHook
